@@ -1,8 +1,8 @@
 {
   "name": "speech",
   "displayName": "Text to Speech",
-  "description": "Provides text-to-speech in code editors",
-  "version": "0.1.1",
+  "description": "Read Markdown documentation aloud inside VS Code — listen to your docs like an audiobook",
+  "version": "0.2.0",
   "publisher": "bierner",
   "license": "MIT",
   "extensionKind": [
@@ -12,7 +12,11 @@
     "speech",
     "say",
     "text to speech",
-    "text-to-speech"
+    "text-to-speech",
+    "markdown",
+    "documentation",
+    "proofreading",
+    "read aloud"
   ],
   "icon": "media/logo.png",
   "galleryBanner": {
@@ -30,7 +34,9 @@
     "url": "https://github.com/mattbierner/vscode-speech.git"
   },
   "activationEvents": [
-    "onCommand:speech.speakSelection"
+    "onCommand:speech.speakSelection",
+    "onCommand:speech.readFromCursor",
+    "onLanguage:markdown"
   ],
   "main": "./out/extension",
   "contributes": {
@@ -46,7 +52,49 @@
         "speech.speed": {
           "type": "number",
           "default": 1,
-          "description": "Speech rate speed multiplier."
+          "description": "Speech rate speed multiplier. Range: 0.25 to 3.0."
+        },
+        "speech.listeningMode": {
+          "type": "string",
+          "default": "prose-only",
+          "enum": [
+            "prose-only",
+            "prose-examples",
+            "full",
+            "custom"
+          ],
+          "enumDescriptions": [
+            "Headings, paragraphs, lists, and blockquotes only",
+            "Prose plus code blocks",
+            "Read everything except frontmatter and HTML",
+            "Custom selection of content types"
+          ],
+          "description": "Default listening mode for Markdown playback."
+        },
+        "speech.highlightCurrentSentence": {
+          "type": "boolean",
+          "default": true,
+          "description": "Highlight the current block being spoken in the editor."
+        },
+        "speech.codeLensEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show 'Read from here' CodeLens on Markdown headings."
+        },
+        "speech.readCodeBlocks": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to read code blocks during playback."
+        },
+        "speech.readTables": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to read tables during playback."
+        },
+        "speech.readInlineCode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to read inline code during playback."
         },
         "speech.substitutions": {
           "type": "object",
@@ -56,36 +104,95 @@
           "default": {
             "_": " "
           },
-          "description": "A dictionary of characters to replace with other characters before speaking. This can help with characters that text-to-speech reads in an unexpected way."
+          "description": "A dictionary of characters to replace with other characters before speaking."
         }
       }
     },
     "commands": [
       {
+        "command": "speech.readFromCursor",
+        "title": "Speech: Read from Cursor"
+      },
+      {
+        "command": "speech.readSelection",
+        "title": "Speech: Read Selection"
+      },
+      {
         "command": "speech.speakDocument",
-        "title": "Speak Document",
-        "when": "editorTextFocus"
+        "title": "Speech: Speak Document"
       },
       {
         "command": "speech.speakSelection",
-        "title": "Speak Selection",
-        "when": "editorTextFocus && editorHasSelection"
+        "title": "Speech: Speak Selection"
+      },
+      {
+        "command": "speech.togglePlayback",
+        "title": "Speech: Play / Pause"
       },
       {
         "command": "speech.stopSpeaking",
-        "title": "Stop Speaking"
+        "title": "Speech: Stop Speaking"
+      },
+      {
+        "command": "speech.increaseSpeed",
+        "title": "Speech: Increase Speed"
+      },
+      {
+        "command": "speech.decreaseSpeed",
+        "title": "Speech: Decrease Speed"
+      },
+      {
+        "command": "speech.nextSection",
+        "title": "Speech: Next Section"
+      },
+      {
+        "command": "speech.previousSection",
+        "title": "Speech: Previous Section"
+      },
+      {
+        "command": "speech.pickListeningMode",
+        "title": "Speech: Choose Listening Mode"
+      },
+      {
+        "command": "speech.pickSpeed",
+        "title": "Speech: Choose Speed"
+      },
+      {
+        "command": "speech.toggleCodeBlocks",
+        "title": "Speech: Toggle Code Blocks"
+      },
+      {
+        "command": "speech.toggleTables",
+        "title": "Speech: Toggle Tables"
+      },
+      {
+        "command": "speech.toggleInlineCode",
+        "title": "Speech: Toggle Inline Code"
+      },
+      {
+        "command": "speech.readDiffLeft",
+        "title": "Speech: Read Left Side (Diff)"
+      },
+      {
+        "command": "speech.readDiffRight",
+        "title": "Speech: Read Right Side (Diff)"
       }
     ],
     "menus": {
       "editor/context": [
         {
-          "command": "speech.speakDocument",
-          "when": "!editorHasSelection",
+          "command": "speech.readFromCursor",
+          "when": "editorLangId == markdown && !editorHasSelection",
           "group": "8_speech"
         },
         {
-          "command": "speech.speakSelection",
+          "command": "speech.readSelection",
           "when": "editorHasSelection",
+          "group": "8_speech"
+        },
+        {
+          "command": "speech.speakDocument",
+          "when": "editorLangId != markdown && !editorHasSelection",
           "group": "8_speech"
         },
         {
@@ -93,12 +200,60 @@
           "group": "8_speech"
         }
       ]
-    }
+    },
+    "keybindings": [
+      {
+        "command": "speech.togglePlayback",
+        "key": "alt+shift+p",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "speech.readFromCursor",
+        "key": "alt+shift+r",
+        "when": "editorTextFocus && editorLangId == markdown"
+      },
+      {
+        "command": "speech.readSelection",
+        "key": "alt+shift+s",
+        "when": "editorTextFocus && editorHasSelection"
+      },
+      {
+        "command": "speech.stopSpeaking",
+        "key": "alt+shift+x",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "speech.increaseSpeed",
+        "key": "alt+shift+=",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "speech.decreaseSpeed",
+        "key": "alt+shift+-",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "speech.nextSection",
+        "key": "alt+shift+]",
+        "when": "editorTextFocus && editorLangId == markdown"
+      },
+      {
+        "command": "speech.previousSection",
+        "key": "alt+shift+[",
+        "when": "editorTextFocus && editorLangId == markdown"
+      },
+      {
+        "command": "speech.pickListeningMode",
+        "key": "alt+shift+m",
+        "when": "editorTextFocus"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "tsc -p ./",
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "watch": "tsc -watch -p ./",
+    "test": "node out/test/runTests.js"
   },
   "devDependencies": {
     "@types/markdown-it": "^14.1.2",
@@ -106,7 +261,7 @@
     "typescript": "^5.3.0"
   },
   "dependencies": {
-    "markdown-it": "^14.1.1",
+    "markdown-it": "^14.1.0",
     "say": "^0.15.0"
   }
 }
