@@ -1,6 +1,6 @@
 // Simple test runner that runs all test files
-const { execSync } = require('child_process');
-const path = require('path');
+import { execSync } from 'child_process';
+import * as path from 'path';
 
 const testFiles = [
     'markdownParser.test.js',
